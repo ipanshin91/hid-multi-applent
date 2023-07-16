@@ -15,7 +15,7 @@ ls /usr/local/include/hidapi/
 ```
 3. Clone repository
 ```
-git clone
+git clone https://github.com/ipanshin91/hid-multi-applent.git
 ```
 4. Compile the program
 ```
