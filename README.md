@@ -29,9 +29,11 @@ $ lsusb | grep APPLENT
 Bus 004 Device 117: ID 0825:0826 GC Protronics APPLENT USB
 ```
 #### Add rules
+```
 /etc/udev/rules.d/99-anbai.rules
 SUBSYSTEM=="usb", ATTR{idVendor}=="0825", ATTR{idProduct}=="0826", MODE="0666"
 udevadm control --reload-rules && sudo udevadm trigger
+```
 
 #### Query system info
 ```
