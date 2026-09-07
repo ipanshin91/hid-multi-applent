@@ -4,6 +4,18 @@
 #include <iostream>
 #include "hidapi.h"
 
+struct DeviceId
+{
+	unsigned int vid;
+	unsigned int pid;
+};
+
+static const DeviceId SUPPORTED_DEVICES[] = {
+	{0x825, 0x826},
+	{0x825, 0x084},
+};
+static const size_t SUPPORTED_DEVICES_COUNT = sizeof(SUPPORTED_DEVICES) / sizeof(SUPPORTED_DEVICES[0]);
+
 class RequestCommand
 {
 	public:
@@ -86,10 +98,10 @@ class RequestCommand
 class ATCommander
 {
 	public: 
-		void init(unsigned int vid, unsigned int pid)
+		void init(const DeviceId* devices, size_t count)
 		{
-			this->vid = vid;
-			this->pid = pid;
+			this->devices = devices;
+			this->count = count;
 		}
 		
 		int cmd(const char* header, const char* para, unsigned char* data)
@@ -102,38 +114,42 @@ class ATCommander
 			request.setupChecksum();
 			memset(buff, 0, 64);
 
-			hid_device_info *devices;
-			devices = hid_enumerate(this->vid, this->pid);
-			
-			if (!devices)
+			int found = 0;
+			for (size_t i = 0; i < this->count; i++) {
+				hid_device_info *list = hid_enumerate(this->devices[i].vid, this->devices[i].pid);
+
+				for (hid_device_info *dev = list; dev; dev = dev->next) {
+					found++;
+					request.getData(buff);
+
+					hid_device *handle;
+					handle = hid_open_path(dev->path);
+
+					result = hid_write(handle, buff, 64);
+					result = hid_read_timeout(handle, data, 64, 1000);
+
+					hid_close(handle);
+
+					printf("%s\n", data);
+				}
+
+				hid_free_enumeration(list);
+			}
+
+			hid_exit();
+
+			if (!found)
 			{
 				printf("Error (%s): Devices not found\n", header);
 				return 0;
 			}
-			
-			while (devices){	
-				request.getData(buff);
-				
-				hid_device *handle;
-				handle = hid_open_path(devices->path);
-								
-				result = hid_write(handle, buff, 64);
-				result = hid_read_timeout(handle, data, 64, 1000);
-				
-				hid_close(handle);
-				devices = devices->next;
-			
-				printf("%s\n", data);
-			}
-			
-			hid_free_enumeration(devices);
-			hid_exit();
+
 			return 1;
 		}
-		
+
 	private:
-		unsigned int vid;
-		unsigned int pid;
+		const DeviceId* devices;
+		size_t count;
 		
 };
 
@@ -144,16 +160,13 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	const unsigned int VID = 0x825;
-	const unsigned int PID = 0x826;
-	
 	char *header = argv[1];
 	char *para = argv[2];
 	
 	unsigned char buff[64];
 	memset(buff, 0, 64);
 	ATCommander atc;
-	atc.init(VID, PID);
+	atc.init(SUPPORTED_DEVICES, SUPPORTED_DEVICES_COUNT);
 	atc.cmd(header, para, buff);
 	
 	return 0;
